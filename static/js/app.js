@@ -1,26 +1,23 @@
 /**
  * LNCR STEP Splitter - Main Application State & UI Manager
- * Late Night Combat Robotics
+ * Matches Late Night Combat Robotics Calculator Suite formatting and conventions.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Global Application State
   const state = {
     sessionId: null,
     sourceName: null,
     bodies: [],
     materials: {},
-    weightClasses: {},
-    currentMaterial: 'al_6061',
-    selectedBodyIndex: null,
+    currentMaterial: 'uhmw',
     viewer: null
   };
 
   // DOM Elements
+  const uploadCard = document.getElementById('upload-card');
   const dropZone = document.getElementById('upload-section');
   const fileInput = document.getElementById('step-file-input');
   const browseBtn = document.getElementById('browse-btn');
-  const sampleButtonsContainer = document.getElementById('sample-buttons-container');
   const loadingOverlay = document.getElementById('loading-overlay');
   const loadingStatus = document.getElementById('loading-status');
   const cadWorkspace = document.getElementById('cad-workspace');
@@ -38,11 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const globalMaterialSelect = document.getElementById('global-material-select');
   const uploadAnotherBtn = document.getElementById('upload-another-btn');
 
-  // Audio & Theme Elements
-  const audio = document.getElementById('lncr-bg-audio');
-  const audioBtn = document.getElementById('audio-toggle-btn');
-  const audioIcon = document.getElementById('audio-icon');
-  const themeBtn = document.getElementById('theme-toggle-btn');
+  // Header & Footer Controls
+  const headerThemeBtn = document.getElementById('header-theme-btn');
+  const footerDarkSwitch = document.getElementById('footer-dark-switch');
+  const footerDarkKnob = document.getElementById('footer-dark-knob');
+  const headerResetBtn = document.getElementById('header-reset-btn');
+  const headerExportBtn = document.getElementById('header-export-btn');
+  const toastBanner = document.getElementById('toast-banner');
+  const toastText = document.getElementById('toast-text');
 
   // Initialize 3D Viewer
   state.viewer = new StepViewer3D('viewer-container');
@@ -50,84 +50,72 @@ document.addEventListener('DOMContentLoaded', () => {
     highlightBodyCard(bodyIndex);
   };
 
-  // 1. Audio Controls
-  let audioPlaying = false;
-  audioBtn.addEventListener('click', () => {
-    if (audioPlaying) {
-      audio.pause();
-      audioPlaying = false;
-      audioIcon.setAttribute('data-lucide', 'volume-x');
+  function showToast(msg) {
+    if (!toastBanner || !toastText) return;
+    toastText.textContent = msg;
+    toastBanner.classList.remove('hidden');
+    setTimeout(() => toastBanner.classList.add('hidden'), 2800);
+  }
+
+  // 1. Theme Sync (Light mode default)
+  function applyTheme(isDark) {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('lnc_theme', 'dark');
+      if (headerThemeBtn) headerThemeBtn.textContent = 'Light';
+      if (footerDarkSwitch) {
+        footerDarkSwitch.setAttribute('aria-checked', 'true');
+        footerDarkSwitch.classList.remove('bg-[#CBD5E1]');
+        footerDarkSwitch.classList.add('bg-[#094AD8]');
+      }
+      if (footerDarkKnob) {
+        footerDarkKnob.classList.remove('translate-x-0');
+        footerDarkKnob.classList.add('translate-x-5');
+      }
     } else {
-      audio.volume = 0.25;
-      audio.play().then(() => {
-        audioPlaying = true;
-        audioIcon.setAttribute('data-lucide', 'volume-2');
-      }).catch(err => console.log('Autoplay prevented', err));
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('lnc_theme', 'light');
+      if (headerThemeBtn) headerThemeBtn.textContent = 'Dark';
+      if (footerDarkSwitch) {
+        footerDarkSwitch.setAttribute('aria-checked', 'false');
+        footerDarkSwitch.classList.remove('bg-[#094AD8]');
+        footerDarkSwitch.classList.add('bg-[#CBD5E1]');
+      }
+      if (footerDarkKnob) {
+        footerDarkKnob.classList.remove('translate-x-5');
+        footerDarkKnob.classList.add('translate-x-0');
+      }
     }
-    lucide.createIcons();
-  });
+    if (state.viewer) state.viewer.setTheme(isDark);
+  }
 
-  // 2. Theme Switcher
-  themeBtn.addEventListener('click', () => {
-    const isDark = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('lnc_theme', isDark ? 'dark' : 'light');
-    if (state.viewer) {
-      state.viewer.scene.background = new THREE.Color(isDark ? 0x0e1015 : 0xf1f5f9);
-    }
-    lucide.createIcons();
-  });
+  applyTheme(document.documentElement.classList.contains('dark'));
 
-  // 3. Fetch Materials & Samples on Load
+  function toggleTheme() {
+    applyTheme(!document.documentElement.classList.contains('dark'));
+  }
+
+  if (headerThemeBtn) headerThemeBtn.addEventListener('click', toggleTheme);
+  if (footerDarkSwitch) footerDarkSwitch.addEventListener('click', toggleTheme);
+
+  // 2. Header Export Action
+  if (headerExportBtn) {
+    headerExportBtn.addEventListener('click', () => {
+      if (!state.sessionId) return;
+      const centerOrigin = centerOriginToggle.checked;
+      window.location.href = `/api/download-all/${state.sessionId}?center_origin=${centerOrigin}`;
+    });
+  }
+
+  // 4. Fetch Materials on Load
   fetch('/api/materials')
     .then(r => r.json())
     .then(data => {
-      state.materials = data.materials;
-      state.weightClasses = data.weight_classes;
-    });
+      state.materials = data.materials || {};
+    })
+    .catch(() => {});
 
-  loadSampleList();
-
-  function loadSampleList() {
-    fetch('/api/samples')
-      .then(r => r.json())
-      .then(data => {
-        sampleButtonsContainer.innerHTML = '';
-        if (data.samples && data.samples.length > 0) {
-          data.samples.forEach(s => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-mono bg-slate-100 dark:bg-[#1E222B] border border-slate-200 dark:border-[#2C3240] hover:border-[#094AD8] dark:hover:border-[#00F0FF] text-slate-700 dark:text-slate-300 transition-colors flex items-center space-x-1.5';
-            btn.innerHTML = `<span class="truncate max-w-[150px]">${s.name}</span><span class="text-[10px] text-slate-400">(${s.size_kb} KB)</span>`;
-            btn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              loadSample(s.name);
-            });
-            sampleButtonsContainer.appendChild(btn);
-          });
-        } else {
-          sampleButtonsContainer.innerHTML = '<span class="text-xs text-slate-400 font-mono">No sample files found</span>';
-        }
-      });
-  }
-
-  function loadSample(sampleName) {
-    showLoading(`Loading sample: ${sampleName}`, "Reading B-Rep bodies & generating preview meshes...");
-    fetch(`/api/load-sample/${encodeURIComponent(sampleName)}`, { method: 'POST' })
-      .then(r => {
-        if (!r.ok) return r.json().then(err => { throw new Error(err.detail || 'Failed'); });
-        return r.json();
-      })
-      .then(data => {
-        hideLoading();
-        handleSessionLoaded(data);
-      })
-      .catch(err => {
-        hideLoading();
-        alert(`Error loading sample: ${err.message}`);
-      });
-  }
-
-  // 4. Drag & Drop & Upload Handling
+  // 5. Drag & Drop & Upload Handling
   dropZone.addEventListener('click', () => fileInput.click());
   browseBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -160,14 +148,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function uploadFile(file) {
     const ext = file.name.split('.').pop().toLowerCase();
     if (!['step', 'stp'].includes(ext)) {
-      alert("Invalid format! Please upload a CAD STEP file (.step or .stp).");
+      alert('Invalid format! Please upload a CAD STEP file (.step or .stp).');
       return;
     }
 
     const formData = new FormData();
     formData.append('file', file);
 
-    showLoading("Decomposing Multi-Body STEP", "Parsing OpenCASCADE topology and isolating solids...");
+    showLoading('Decomposing Multi-Body STEP', 'Isolating solid bodies and generating 3D meshes...');
 
     fetch('/api/upload', {
       method: 'POST',
@@ -197,130 +185,97 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingOverlay.classList.add('hidden');
   }
 
-  // 5. Handling Loaded CAD Data
+  // 6. Handling Loaded CAD Data
   function handleSessionLoaded(data) {
     state.sessionId = data.session_id;
     state.sourceName = data.source_name;
     state.bodies = data.bodies;
 
-    // Update Header Stats
     activeFilename.textContent = data.source_name;
-    activeBodyBadge.textContent = `${data.bodies.length} ${data.bodies.length === 1 ? 'Body' : 'Bodies'} Isolated`;
-    
+    activeBodyBadge.textContent = `${data.bodies.length} ${data.bodies.length === 1 ? 'Body' : 'Bodies'}`;
+
     const totMm3 = data.summary.total_volume_mm3;
     const totCm3 = data.summary.total_volume_cm3;
     statTotalVolume.textContent = `${totMm3.toLocaleString()} mm³ (${totCm3} cm³)`;
 
-    // Estimate weight in default 6061 Aluminum
-    const defaultMassG = data.summary.total_masses[state.currentMaterial]?.mass_g || 0;
-    const beetlePct = ((defaultMassG / 1360.78) * 100).toFixed(1);
-    statTotalClass.textContent = `${defaultMassG.toFixed(1)}g (${beetlePct}% of 3lb Beetleweight)`;
+    if (headerExportBtn) headerExportBtn.disabled = false;
 
-    // Render Body Cards
     renderBodyCards();
+    updateMaterialMasses();
 
-    // Load into 3D Viewport
-    state.viewer.loadBodies(state.sessionId, state.bodies);
-
-    // Switch view
-    dropZone.classList.add('hidden');
+    uploadCard.classList.add('hidden');
     cadWorkspace.classList.remove('hidden');
 
-    // Reset Explode Slider
+    state.viewer.onWindowResize();
+    state.viewer.loadBodies(state.sessionId, state.bodies);
+
     explodeSlider.value = 0;
     explodeVal.textContent = '0%';
-
-    lucide.createIcons();
   }
 
-  // 6. Render Body Cards in Inspector Sidebar
+  // 7. Render Body Cards
   function renderBodyCards() {
     bodiesContainer.innerHTML = '';
 
     state.bodies.forEach((b, idx) => {
       const card = document.createElement('div');
-      card.className = 'body-card p-4 rounded-xl border border-slate-200 dark:border-[#2C3240] bg-slate-50/70 dark:bg-[#16181D] space-y-3';
+      card.className = 'body-card p-3.5 rounded-none border border-[#CBD5E1] dark:border-[#2E3646] bg-[#F8FAFC] dark:bg-[#16181D] space-y-2.5';
       card.id = `body-card-${b.index}`;
 
       const colorHex = '#' + state.viewer.colorPalette[idx % state.viewer.colorPalette.length].toString(16).padStart(6, '0');
       const curMat = state.currentMaterial;
       const massInfo = b.masses[curMat] || { mass_g: 0, mass_oz: 0 };
-      const beetlePct = Math.min(100, ((massInfo.mass_g / 1360.78) * 100)).toFixed(1);
 
       card.innerHTML = `
-        <div class="flex items-start justify-between gap-2">
-          
-          <div class="flex items-center space-x-2.5 flex-1 min-w-0">
-            <input type="checkbox" class="body-select-checkbox w-4 h-4 rounded text-[#094AD8] focus:ring-0" data-index="${b.index}" checked />
-            <span class="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow-sm" style="background-color: ${colorHex}"></span>
-            <div class="flex-1 min-w-0">
-              <input type="text" class="body-name-input w-full text-xs font-mono font-bold bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-[#2C3240] focus:border-[#094AD8] focus:outline-none text-slate-900 dark:text-white" value="${b.name}" data-index="${b.index}" title="Click to rename body" />
-            </div>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center space-x-2 flex-1 min-w-0">
+            <input type="checkbox" class="body-select-checkbox w-3.5 h-3.5 text-[#094AD8]" data-index="${b.index}" checked />
+            <span class="w-3 h-3 shrink-0 inline-block border border-black/15" style="background-color: ${colorHex}"></span>
+            <input type="text" class="body-name-input w-full text-xs font-bold bg-transparent border-b border-transparent hover:border-[#CBD5E1] dark:hover:border-[#2E3646] focus:border-[#094AD8] focus:outline-none text-[#0F172A] dark:text-[#CEDDFD]" value="${b.name}" data-index="${b.index}" title="Click to rename body" />
           </div>
 
-          <div class="flex items-center space-x-1 flex-shrink-0">
-            <!-- Focus in 3D Button -->
-            <button class="focus-body-btn p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-[#2C3240] text-slate-500 hover:text-[#094AD8] dark:hover:text-[#00F0FF] transition-colors" data-index="${b.index}" title="Focus in 3D Viewport">
-              <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          <div class="flex items-center space-x-1 shrink-0">
+            <button type="button" class="focus-body-btn px-2 py-1 rounded-none border border-[#CBD5E1] dark:border-[#2E3646] bg-white dark:bg-[#1F232B] text-[11px] font-semibold text-[#64748B] dark:text-[#85A3E0] hover:text-[#094AD8] hover:border-[#094AD8] cursor-pointer">
+              Focus
             </button>
-            <!-- Toggle Visibility -->
-            <button class="toggle-visibility-btn p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-[#2C3240] text-slate-500 hover:text-[#094AD8] dark:hover:text-[#00F0FF] transition-colors" data-index="${b.index}" data-visible="true" title="Toggle visibility in 3D">
-              <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            <button type="button" class="toggle-visibility-btn px-2 py-1 rounded-none border border-[#CBD5E1] dark:border-[#2E3646] bg-white dark:bg-[#1F232B] text-[11px] font-semibold text-[#64748B] dark:text-[#85A3E0] hover:text-[#094AD8] hover:border-[#094AD8] cursor-pointer" data-visible="true">
+              Hide
             </button>
-            <!-- Download Single STEP -->
-            <button class="download-body-btn px-2.5 py-1 rounded-lg bg-[#094AD8]/10 hover:bg-[#094AD8] text-[#094AD8] hover:text-white dark:bg-[#00F0FF]/10 dark:text-[#00F0FF] dark:hover:bg-[#00F0FF] dark:hover:text-[#0E1015] text-[11px] font-mono font-bold transition-all flex items-center space-x-1" data-index="${b.index}" title="Download individual body as STEP">
-              <i data-lucide="download" class="w-3 h-3"></i>
-              <span>STEP</span>
+            <button type="button" class="download-body-btn px-2.5 py-1 rounded-none bg-[#094AD8] hover:bg-[#1B5DF5] text-white text-[11px] font-bold transition-colors cursor-pointer">
+              Download STEP
             </button>
-          </div>
-
-        </div>
-
-        <!-- Telemetry Details Grid -->
-        <div class="grid grid-cols-2 gap-2 text-[11px] font-mono bg-white dark:bg-[#0E1015] p-2.5 rounded-lg border border-slate-100 dark:border-[#1E222B]">
-          <div>
-            <span class="text-slate-400 block text-[9px] uppercase">Bounding Box (L × W × H)</span>
-            <span class="text-slate-700 dark:text-slate-300 font-semibold">${b.dimensions_mm.dx} × ${b.dimensions_mm.dy} × ${b.dimensions_mm.dz} mm</span>
-            <span class="text-slate-400 block text-[9px]">(${b.dimensions_in.dx} × ${b.dimensions_in.dy} × ${b.dimensions_in.dz} in)</span>
-          </div>
-          <div>
-            <span class="text-slate-400 block text-[9px] uppercase">Volume</span>
-            <span class="text-slate-700 dark:text-slate-300 font-semibold">${b.volume_mm3.toLocaleString()} mm³</span>
-            <span class="text-slate-400 block text-[9px]">(${b.volume_cm3} cm³)</span>
           </div>
         </div>
 
-        <!-- Material Mass Gauge -->
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[11px] font-mono">
-            <span class="text-slate-500 dark:text-slate-400">Est. Mass (<span class="body-mat-name">${state.materials[curMat]?.name || curMat}</span>):</span>
-            <span class="font-bold text-[#094AD8] dark:text-[#00F0FF] body-mass-display">${massInfo.mass_g}g (${massInfo.mass_oz} oz)</span>
+        <div class="grid grid-cols-2 gap-2 text-[11px] bg-white dark:bg-[#1F232B] p-2.5 rounded-none border border-[#E2E8F0] dark:border-[#2E3646] tabular-nums">
+          <div>
+            <span class="text-[#64748B] dark:text-[#85A3E0] block text-[10px] uppercase font-semibold">Bounding Box</span>
+            <span class="text-[#0F172A] dark:text-[#CEDDFD] font-bold">${b.dimensions_mm.dx} × ${b.dimensions_mm.dy} × ${b.dimensions_mm.dz} mm</span>
+            <span class="text-[#64748B] dark:text-[#85A3E0] block text-[10px]">(${b.dimensions_in.dx} × ${b.dimensions_in.dy} × ${b.dimensions_in.dz} in)</span>
           </div>
-          <div class="w-full bg-slate-200 dark:bg-[#2C3240] h-1.5 rounded-full overflow-hidden">
-            <div class="weight-progress-bar bg-[#094AD8] dark:bg-[#00F0FF] h-full" style="width: ${beetlePct}%"></div>
+          <div>
+            <span class="text-[#64748B] dark:text-[#85A3E0] block text-[10px] uppercase font-semibold">Volume</span>
+            <span class="text-[#0F172A] dark:text-[#CEDDFD] font-bold">${b.volume_mm3.toLocaleString()} mm³</span>
+            <span class="text-[#64748B] dark:text-[#85A3E0] block text-[10px]">(${b.volume_cm3} cm³)</span>
           </div>
-          <div class="text-[9px] font-mono text-slate-400 text-right">
-            <span>${beetlePct}% of 3lb Beetleweight limit</span>
+        </div>
+
+        <div class="tabular-nums">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-[#64748B] dark:text-[#85A3E0]">Est. Mass (<span class="body-mat-name">${state.materials[curMat]?.name || curMat}</span>):</span>
+            <span class="font-bold text-[#094AD8] dark:text-[#60A5FA] body-mass-display">${massInfo.mass_g}g (${massInfo.mass_oz} oz)</span>
           </div>
         </div>
       `;
 
-      // Card hover highlights corresponding body in 3D
-      card.addEventListener('mouseenter', () => {
-        state.viewer.setHoverState(b.index);
-      });
-      card.addEventListener('mouseleave', () => {
-        state.viewer.clearHoverState();
-      });
+      card.addEventListener('mouseenter', () => state.viewer.setHoverState(b.index));
+      card.addEventListener('mouseleave', () => state.viewer.clearHoverState());
 
-      // Inline Rename Event
       const nameInput = card.querySelector('.body-name-input');
       nameInput.addEventListener('change', () => {
         b.name = nameInput.value.trim() || `Body_${b.index}`;
-        // Sync with viewer mesh name
         const meshObj = state.viewer.bodies.find(x => x.index === b.index);
         if (meshObj) meshObj.name = b.name;
-        // Post rename to server
         fetch(`/api/rename/${state.sessionId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -328,25 +283,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
-      // Focus Body in 3D Button
       card.querySelector('.focus-body-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         state.viewer.focusBody(b.index);
         highlightBodyCard(b.index);
       });
 
-      // Toggle Visibility Button
       const visBtn = card.querySelector('.toggle-visibility-btn');
       visBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const currentlyVisible = visBtn.getAttribute('data-visible') === 'true';
-        const nextVisible = !currentlyVisible;
-        visBtn.setAttribute('data-visible', String(nextVisible));
-        state.viewer.setBodyVisibility(b.index, nextVisible);
-        visBtn.classList.toggle('opacity-30', !nextVisible);
+        const visible = visBtn.getAttribute('data-visible') === 'true';
+        const next = !visible;
+        visBtn.setAttribute('data-visible', String(next));
+        visBtn.textContent = next ? 'Hide' : 'Show';
+        state.viewer.setBodyVisibility(b.index, next);
       });
 
-      // Download Single Body STEP
       card.querySelector('.download-body-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         downloadBodyStep(b.index);
@@ -354,8 +306,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       bodiesContainer.appendChild(card);
     });
-
-    lucide.createIcons();
   }
 
   function highlightBodyCard(bodyIndex) {
@@ -369,54 +319,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 7. Single Body Download
+  // 8. Export Helpers
   function downloadBodyStep(bodyIndex) {
     if (!state.sessionId) return;
     const body = state.bodies.find(b => b.index === bodyIndex);
     const customName = body ? body.name : `Body_${bodyIndex}`;
     const centerOrigin = centerOriginToggle.checked;
-    const url = `/api/download/${state.sessionId}/${bodyIndex}?center_origin=${centerOrigin}&custom_name=${encodeURIComponent(customName)}`;
-    window.location.href = url;
+    window.location.href = `/api/download/${state.sessionId}/${bodyIndex}?center_origin=${centerOrigin}&custom_name=${encodeURIComponent(customName)}`;
   }
 
-  // 8. Download All Bodies as ZIP
   downloadAllZipBtn.addEventListener('click', () => {
     if (!state.sessionId) return;
     const centerOrigin = centerOriginToggle.checked;
-    const url = `/api/download-all/${state.sessionId}?center_origin=${centerOrigin}`;
-    window.location.href = url;
+    window.location.href = `/api/download-all/${state.sessionId}?center_origin=${centerOrigin}`;
   });
 
-  // 9. Download Selected Bodies as ZIP
   downloadSelectedBtn.addEventListener('click', () => {
     if (!state.sessionId) return;
-    const checkedCheckboxes = document.querySelectorAll('.body-select-checkbox:checked');
-    if (checkedCheckboxes.length === 0) {
-      alert("No bodies selected! Please check at least one body.");
+    const checked = document.querySelectorAll('.body-select-checkbox:checked');
+    if (checked.length === 0) {
+      alert('No bodies selected! Please check at least one body.');
       return;
     }
-    const selectedIndices = Array.from(checkedCheckboxes).map(cb => cb.getAttribute('data-index')).join(',');
+    const indices = Array.from(checked).map(cb => cb.getAttribute('data-index')).join(',');
     const centerOrigin = centerOriginToggle.checked;
-    const url = `/api/download-all/${state.sessionId}?selected_indices=${encodeURIComponent(selectedIndices)}&center_origin=${centerOrigin}`;
-    window.location.href = url;
+    window.location.href = `/api/download-all/${state.sessionId}?selected_indices=${encodeURIComponent(indices)}&center_origin=${centerOrigin}`;
   });
 
-  // 10. Select All / Deselect All
   selectAllCheckbox.addEventListener('change', () => {
     const isChecked = selectAllCheckbox.checked;
-    document.querySelectorAll('.body-select-checkbox').forEach(cb => {
-      cb.checked = isChecked;
-    });
+    document.querySelectorAll('.body-select-checkbox').forEach(cb => { cb.checked = isChecked; });
   });
 
-  // 11. Explode Slider
   explodeSlider.addEventListener('input', () => {
     const factor = parseFloat(explodeSlider.value) / 100.0;
     explodeVal.textContent = `${explodeSlider.value}%`;
     state.viewer.setExplode(factor);
   });
 
-  // 12. Global Material Selector
   globalMaterialSelect.addEventListener('change', () => {
     state.currentMaterial = globalMaterialSelect.value;
     updateMaterialMasses();
@@ -425,57 +365,54 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateMaterialMasses() {
     const curMat = state.currentMaterial;
     const matName = state.materials[curMat]?.name || curMat;
-
     let totalG = 0;
 
     state.bodies.forEach(b => {
+      const massInfo = b.masses[curMat] || { mass_g: 0, mass_oz: 0 };
+      totalG += massInfo.mass_g;
+
       const card = document.getElementById(`body-card-${b.index}`);
       if (!card) return;
 
-      const massInfo = b.masses[curMat] || { mass_g: 0, mass_oz: 0 };
-      totalG += massInfo.mass_g;
-      const beetlePct = Math.min(100, ((massInfo.mass_g / 1360.78) * 100)).toFixed(1);
-
       card.querySelector('.body-mat-name').textContent = matName;
       card.querySelector('.body-mass-display').textContent = `${massInfo.mass_g}g (${massInfo.mass_oz} oz)`;
-      card.querySelector('.weight-progress-bar').style.width = `${beetlePct}%`;
     });
 
-    const totalPct = ((totalG / 1360.78) * 100).toFixed(1);
-    statTotalClass.textContent = `${totalG.toFixed(1)}g (${totalPct}% of 3lb Beetleweight)`;
+    const totalOz = totalG / 28.3495;
+    statTotalClass.textContent = `${totalG.toFixed(1)}g (${totalOz.toFixed(2)} oz) — ${matName}`;
   }
 
-  // 13. Camera Preset Buttons
   document.querySelectorAll('.view-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const view = btn.getAttribute('data-view');
-      state.viewer.setCameraPreset(view);
-    });
+    btn.addEventListener('click', () => state.viewer.setCameraPreset(btn.getAttribute('data-view')));
   });
 
-  // 14. View Toggles (Wireframe, Grid, Reset Cam)
   document.getElementById('toggle-wireframe-btn').addEventListener('click', () => {
     const wire = state.viewer.toggleWireframe();
-    document.getElementById('toggle-wireframe-btn').classList.toggle('text-[#00F0FF]', wire);
+    const btn = document.getElementById('toggle-wireframe-btn');
+    btn.classList.toggle('bg-[#094AD8]', wire);
+    btn.classList.toggle('text-white', wire);
   });
 
   document.getElementById('toggle-grid-btn').addEventListener('click', () => {
     const grid = state.viewer.toggleGrid();
-    document.getElementById('toggle-grid-btn').classList.toggle('text-[#00F0FF]', grid);
+    const btn = document.getElementById('toggle-grid-btn');
+    btn.classList.toggle('opacity-50', !grid);
   });
 
   document.getElementById('reset-cam-btn').addEventListener('click', () => {
     state.viewer.setCameraPreset('iso');
   });
 
-  // 15. Upload Another / Reset Button
-  uploadAnotherBtn.addEventListener('click', () => {
+  function resetWorkspace() {
     cadWorkspace.classList.add('hidden');
-    dropZone.classList.remove('hidden');
+    uploadCard.classList.remove('hidden');
     fileInput.value = '';
     state.viewer.clearScene();
     state.sessionId = null;
     state.bodies = [];
-  });
+    if (headerExportBtn) headerExportBtn.disabled = true;
+  }
 
+  uploadAnotherBtn.addEventListener('click', resetWorkspace);
+  if (headerResetBtn) headerResetBtn.addEventListener('click', resetWorkspace);
 });

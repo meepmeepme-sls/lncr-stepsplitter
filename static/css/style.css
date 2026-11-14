@@ -1,75 +1,84 @@
-/* LNCR STEP Splitter - Signature Late Night Combat Robotics Styling */
+/* Late Night Combat Robotics — Base Engineering Styling (Matches LNCR-Calculator) */
 
-:root {
-  --lncr-blue: #094AD8;
-  --lncr-cyan: #00F0FF;
-  --lncr-orange: #FF5E00;
-  --lncr-dark: #16181D;
-  --lncr-darker: #0E1015;
-  --lncr-surface: #1E222B;
-  --lncr-border: #2C3240;
+html, body {
+  font-family: 'Roboto', sans-serif !important;
 }
 
-/* Custom Scrollbar for Bodies List */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Enforce crisp sharp corners and Roboto font everywhere in Serious (non-Aero) mode */
+html:not(.fruity),
+html:not(.fruity) *,
+html:not(.fruity) *::before,
+html:not(.fruity) *::after {
+  font-family: 'Roboto', sans-serif !important;
+  border-radius: 0px !important;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+/* Custom scrollbars (Serious Mode) */
+html:not(.fruity) ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+html:not(.fruity) ::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+html:not(.fruity).dark ::-webkit-scrollbar-track {
+  background: #16181D;
+}
+html:not(.fruity) ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+}
+html:not(.fruity).dark ::-webkit-scrollbar-thumb {
+  background: #2E3646;
+}
+html:not(.fruity) ::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+html:not(.fruity).dark ::-webkit-scrollbar-thumb:hover {
+  background: #424957;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 9999px;
+/* Tabular figures for telemetry */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #2C3240;
+/* Number input spinners removed for sleek UI */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #3b4253;
-}
-
-/* Glassmorphism Panels */
-.lncr-glass {
-  background: rgba(14, 16, 21, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-/* Drag & Drop Pulse Glow */
+/* Drag & Drop Active State */
 #upload-section.dragover {
-  border-color: #00F0FF !important;
-  background-color: rgba(9, 74, 216, 0.08) !important;
-  box-shadow: 0 0 30px rgba(0, 240, 255, 0.25);
-  transform: scale(1.005);
+  border-color: #094AD8 !important;
+  background-color: rgba(9, 74, 216, 0.05) !important;
+}
+html.fruity #upload-section.dragover {
+  border-color: #36bdf4 !important;
+  box-shadow: 0 0 0 3px rgba(80, 200, 255, 0.35), 0 0 24px rgba(80, 200, 255, 0.45) !important;
 }
 
 /* Body Card Interactive States */
 .body-card {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .body-card:hover {
-  border-color: rgba(9, 74, 216, 0.5);
-  transform: translateY(-1px);
-}
-
-.dark .body-card:hover {
-  border-color: rgba(0, 240, 255, 0.4);
+  border-color: #094AD8;
 }
 
 .body-card.selected-in-3d {
-  border-color: #00F0FF !important;
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
-  background-color: rgba(9, 74, 216, 0.08);
+  border-color: #094AD8 !important;
+  box-shadow: inset 3px 0 0 #094AD8;
+}
+
+html.fruity .body-card.selected-in-3d {
+  border-color: #36bdf4 !important;
+  box-shadow: 0 0 0 3px rgba(80, 200, 255, 0.35), 0 0 18px rgba(80, 200, 255, 0.45) !important;
 }
 
 /* Canvas Viewport */
@@ -79,22 +88,23 @@
 
 /* Material Mass Bar */
 .weight-progress-bar {
-  transition: width 0.3s ease, background-color 0.3s ease;
+  transition: width 0.25s ease, background-color 0.25s ease;
 }
 
-/* Range input custom styling */
+/* Range input styling */
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  height: 16px;
-  width: 16px;
-  border-radius: 50%;
+  height: 14px;
+  width: 14px;
   background: #094AD8;
-  border: 2px solid white;
+  border: 2px solid #FFFFFF;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
-
-.dark input[type=range]::-webkit-slider-thumb {
-  background: #00F0FF;
-  border: 2px solid #0E1015;
+html.dark input[type=range]::-webkit-slider-thumb {
+  border-color: #16181D;
+}
+html.fruity input[type=range]::-webkit-slider-thumb {
+  border-radius: 999px !important;
+  background: radial-gradient(circle at 35% 30%, #fff 0 30%, #36bdf4 65%, #0b94dc 100%);
+  box-shadow: 0 1px 4px rgba(0, 60, 120, 0.45);
 }

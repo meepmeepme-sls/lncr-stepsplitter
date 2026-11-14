@@ -34,15 +34,16 @@ class StepViewer3D {
   }
 
   init() {
-    const width = this.container.clientWidth;
-    const height = this.container.clientHeight;
+    const width = this.container.clientWidth || 800;
+    const height = this.container.clientHeight || 500;
 
     // 1. Scene
+    const isDark = document.documentElement.classList.contains('dark');
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0e1015);
+    this.scene.background = new THREE.Color(isDark ? 0x16181d : 0xf8fafc);
 
     // 2. Camera
-    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 5000);
+    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 20000);
     this.camera.position.set(150, 150, 200);
 
     // 3. Renderer
@@ -67,7 +68,7 @@ class StepViewer3D {
     this.setupLighting();
 
     // 6. Grid Helper
-    this.gridHelper = new THREE.GridHelper(300, 30, 0x00F0FF, 0x2C3240);
+    this.gridHelper = new THREE.GridHelper(300, 30, 0x094AD8, isDark ? 0x2E3646 : 0xCBD5E1);
     this.gridHelper.position.y = -0.1;
     this.scene.add(this.gridHelper);
 
@@ -77,6 +78,10 @@ class StepViewer3D {
 
     // 8. Event Listeners
     window.addEventListener('resize', () => this.onWindowResize());
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => this.onWindowResize());
+      this.resizeObserver.observe(this.container);
+    }
     this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
     this.canvas.addEventListener('click', (e) => this.onMouseClick(e));
 
@@ -194,6 +199,8 @@ class StepViewer3D {
   }
 
   fitCameraToAssembly(minX, minY, minZ, maxX, maxY, maxZ) {
+    this.onWindowResize();
+
     const center = new THREE.Vector3(
       (minX + maxX) / 2,
       (minY + maxY) / 2,
@@ -204,7 +211,7 @@ class StepViewer3D {
       maxY - minY,
       maxZ - minZ
     );
-    const maxDim = Math.max(size.x, size.y, size.z);
+    const maxDim = Math.max(size.x, size.y, size.z) || 100;
     const fov = this.camera.fov * (Math.PI / 180);
     let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.8;
 
@@ -214,10 +221,11 @@ class StepViewer3D {
     this.controls.update();
 
     // Adjust grid size to encompass assembly
+    const isDark = document.documentElement.classList.contains('dark');
     this.scene.remove(this.gridHelper);
-    const gridSize = Math.max(200, Math.ceil(maxDim * 3 / 50) * 50);
-    this.gridHelper = new THREE.GridHelper(gridSize, 20, 0x00F0FF, 0x2C3240);
-    this.gridHelper.position.set(center.x, minZ - 0.5, center.z);
+    const gridSize = Math.max(200, Math.ceil(maxDim * 2.5 / 50) * 50);
+    this.gridHelper = new THREE.GridHelper(gridSize, 20, 0x094AD8, isDark ? 0x2E3646 : 0xCBD5E1);
+    this.gridHelper.position.set(center.x, minY - 0.5, center.z);
     this.gridHelper.visible = this.showGrid;
     this.scene.add(this.gridHelper);
   }
@@ -390,10 +398,17 @@ class StepViewer3D {
     return this.showGrid;
   }
 
+  setTheme(isDark) {
+    if (this.scene) {
+      this.scene.background = new THREE.Color(isDark ? 0x16181d : 0xf8fafc);
+    }
+  }
+
   onWindowResize() {
     if (!this.container) return;
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
+    if (width === 0 || height === 0) return;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);

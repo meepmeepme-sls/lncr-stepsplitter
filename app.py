@@ -23,7 +23,6 @@ gmsh_lock = threading.Lock()
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
-SAMPLE_DATA_DIR = BASE_DIR / "sample_data"
 TEMP_WORKSPACE = Path(tempfile.gettempdir()) / "lncr_step_splitter"
 TEMP_WORKSPACE.mkdir(parents=True, exist_ok=True)
 
@@ -266,51 +265,6 @@ async def index_page(request: Request):
 async def get_materials():
     """Return dictionary of combat robotics materials and densities."""
     return {"materials": DENSITIES, "weight_classes": WEIGHT_CLASSES}
-
-
-@app.get("/api/samples")
-async def list_sample_files():
-    """List preloaded combat robotics multi-body STEP files."""
-    samples = []
-    if SAMPLE_DATA_DIR.exists():
-        for file in SAMPLE_DATA_DIR.glob("*.STEP"):
-            samples.append({
-                "name": file.name,
-                "size_kb": round(file.stat().st_size / 1024, 1)
-            })
-        for file in SAMPLE_DATA_DIR.glob("*.step"):
-            if not any(s["name"] == file.name for s in samples):
-                samples.append({
-                    "name": file.name,
-                    "size_kb": round(file.stat().st_size / 1024, 1)
-                })
-    return {"samples": samples}
-
-
-@app.post("/api/load-sample/{sample_name}")
-async def load_sample(sample_name: str):
-    """Load and process one of the preloaded sample STEP files."""
-    target_path = SAMPLE_DATA_DIR / sample_name
-    if not target_path.exists() or not target_path.is_file():
-        raise HTTPException(status_code=404, detail="Sample file not found.")
-        
-    try:
-        session_data = process_step_file(target_path, sample_name)
-        # Return summary without internal file system paths
-        clean_bodies = []
-        for b in session_data["bodies"]:
-            b_copy = {k: v for k, v in b.items() if k not in ["step_path", "stl_path"]}
-            clean_bodies.append(b_copy)
-            
-        return {
-            "success": True,
-            "session_id": session_data["session_id"],
-            "source_name": session_data["source_name"],
-            "bodies": clean_bodies,
-            "summary": session_data["summary"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/upload")
